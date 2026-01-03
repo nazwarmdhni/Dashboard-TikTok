@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -59,3 +59,4 @@ if tren_mean > influencer_mean:
     st.success("Kesimpulan: Tren lebih berpengaruh terhadap keputusan belanja.")
 else:
     st.success("Kesimpulan: Influencer lebih berpengaruh terhadap keputusan belanja.")
+
