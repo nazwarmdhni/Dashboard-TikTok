@@ -1,62 +1,61 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-# =============================
-# JUDUL DASHBOARD
-# =============================
-st.title("Dashboard Analisis Pengaruh Tren dan Influencer")
-st.subheader("Perilaku Belanja Remaja Putri di TikTok Shop")
+st.set_page_config(page_title="Dashboard TikTok Shop", layout="centered")
 
-st.write("Dashboard ini bertujuan untuk mengetahui faktor yang lebih "
-         "berpengaruh antara tren dan influencer terhadap keputusan belanja.")
+st.title("📊 Dashboard Pengaruh Tren dan Influencer")
+st.subheader("Keputusan Belanja Remaja Putri di TikTok Shop")
 
-# =============================
-# LOAD DATA
-# =============================
-data = pd.read_csv("data_kuesioner_likert_numerik.csv")
+st.write("""
+Dashboard ini dibuat untuk menganalisis pengaruh **tren** dan **influencer**
+terhadap keputusan belanja remaja putri di e-commerce **TikTok Shop**
+dengan konteks **fashion, make up, dan skincare**.
+""")
 
-st.write("Jumlah responden:", len(data))
+st.header("📁 Upload Data Kuesioner")
 
-# =============================
-# PILIH KATEGORI PRODUK
-# =============================
-kategori = st.selectbox(
-    "Pilih kategori produk:",
-    ["Fashion", "Make Up", "Skincare"]
+uploaded_file = st.file_uploader(
+    "Upload file CSV hasil kuesioner",
+    type=["csv"]
 )
 
-# =============================
-# HITUNG RATA-RATA SKOR
-# =============================
-tren_cols = [col for col in data.columns if "Tren" in col and kategori in col]
-influencer_cols = [col for col in data.columns if "Influencer" in col and kategori in col]
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
 
-tren_mean = data[tren_cols].mean().mean()
-influencer_mean = data[influencer_cols].mean().mean()
+    st.success("✅ Data berhasil dimuat!")
 
-# =============================
-# TAMPILKAN HASIL
-# =============================
-st.write("### Rata-rata Pengaruh")
-st.write("Pengaruh Tren:", round(tren_mean, 2))
-st.write("Pengaruh Influencer:", round(influencer_mean, 2))
+    st.header("📄 Preview Data Responden")
+    st.dataframe(df)
 
-# =============================
-# GRAFIK PERBANDINGAN
-# =============================
-fig, ax = plt.subplots()
-ax.bar(["Tren", "Influencer"], [tren_mean, influencer_mean])
-ax.set_ylabel("Skor Rata-rata")
-ax.set_title("Perbandingan Pengaruh Tren dan Influencer")
+    st.header("👩 Jumlah Responden")
+    st.metric("Total Responden", len(df))
 
-st.pyplot(fig)
+    st.header("📊 Rata-rata Skor Pengaruh")
 
-# =============================
-# KESIMPULAN SEDERHANA
-# =============================
-if tren_mean > influencer_mean:
-    st.success("Kesimpulan: Tren lebih berpengaruh terhadap keputusan belanja.")
-else:
-    st.success("Kesimpulan: Influencer lebih berpengaruh terhadap keputusan belanja.")
+    col_tren = "Pengaruh Tren"
+    col_influencer = "Pengaruh Influencer"
 
+    if col_tren in df.columns and col_influencer in df.columns:
+        avg_tren = df[col_tren].mean()
+        avg_influencer = df[col_influencer].mean()
+
+        st.write("Rata-rata Pengaruh Tren:", round(avg_tren, 2))
+        st.write("Rata-rata Pengaruh Influencer:", round(avg_influencer, 2))
+
+        st.header("📈 Perbandingan Pengaruh")
+        chart_data = pd.DataFrame({
+            "Variabel": ["Tren", "Influencer"],
+            "Rata-rata Skor": [avg_tren, avg_influencer]
+        })
+
+        st.bar_chart(chart_data.set_index("Variabel"))
+
+        st.header("📝 Kesimpulan Sementara")
+        if avg_tren > avg_influencer:
+            st.success("📌 Tren memiliki pengaruh lebih besar terhadap keputusan belanja.")
+        elif avg_tren < avg_influencer:
+            st.success("📌 Influencer memiliki pengaruh lebih besar terhadap keputusan belanja.")
+        else:
+            st.info("📌 Tren dan influencer memiliki pengaruh yang seimbang.")
+    else:
+        st.warning("⚠️ Kolom 'Pengaruh Tren' atau 'Pengaruh Influencer' tidak ditemukan.")
