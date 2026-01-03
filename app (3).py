@@ -1,52 +1,62 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Dashboard TikTok Shop", layout="centered")
-
-st.title("Dashboard Analisis TikTok Shop")
-st.subheader("Pengaruh Tren dan Influencer terhadap Keputusan Belanja Remaja Putri")
+st.title("Dashboard Analisis Perilaku Belanja Remaja Putri di TikTok Shop")
 
 st.write("""
-Dashboard ini bertujuan untuk menganalisis pengaruh **tren** dan **influencer**
-terhadap keputusan belanja remaja putri di e-commerce **TikTok Shop**
-dalam konteks **fashion, make up, dan skincare**.
+Dashboard ini dibuat untuk mengetahui variabel mana yang lebih berpengaruh
+antara **Tren** dan **Influencer** terhadap **Keputusan Belanja**
+remaja putri di e-commerce TikTok Shop.
 """)
 
-st.header("Upload Data Kuesioner")
-uploaded_file = st.file_uploader("Upload file CSV", type=["csv"])
+uploaded_file = st.file_uploader("Upload file CSV hasil kuesioner", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
 
-    st.success("Data berhasil dimuat")
-
-    st.header("Jumlah Responden")
-    st.metric("Total Responden", len(df))
-
-    st.header("Contoh Data Responden")
+    st.subheader("Preview Data Kuesioner")
     st.dataframe(df.head())
 
-    st.header("Analisis Pengaruh")
+    # ===============================
+    # AMBIL KOLOM BERDASARKAN URUTAN
+    # ===============================
+    kolom_tren = df.iloc[:, 5]
+    kolom_influencer = df.iloc[:, 6]
+    kolom_keputusan = df.iloc[:, 7]
 
-    avg_tren = df["Pengaruh Tren"].mean()
-    avg_influencer = df["Pengaruh Influencer"].mean()
+    # ===============================
+    # HITUNG RATA-RATA
+    # ===============================
+    avg_tren = kolom_tren.mean()
+    avg_influencer = kolom_influencer.mean()
 
     col1, col2 = st.columns(2)
     col1.metric("Rata-rata Pengaruh Tren", round(avg_tren, 2))
     col2.metric("Rata-rata Pengaruh Influencer", round(avg_influencer, 2))
 
-    st.header("Perbandingan Pengaruh")
-    chart_data = pd.DataFrame({
-        "Variabel": ["Tren", "Influencer"],
-        "Rata-rata Skor": [avg_tren, avg_influencer]
-    })
+    # ===============================
+    # VISUALISASI
+    # ===============================
+    fig, ax = plt.subplots()
+    ax.bar(
+        ["Tren", "Influencer"],
+        [avg_tren, avg_influencer]
+    )
+    ax.set_ylabel("Nilai Rata-rata")
+    ax.set_title("Perbandingan Pengaruh Tren dan Influencer")
 
-    st.bar_chart(chart_data.set_index("Variabel"))
+    st.pyplot(fig)
 
-    st.header("Kesimpulan Sementara")
+    # ===============================
+    # KESIMPULAN OTOMATIS
+    # ===============================
+    st.subheader("Kesimpulan")
+
     if avg_tren > avg_influencer:
-        st.success("Tren lebih berpengaruh terhadap keputusan belanja.")
-    elif avg_tren < avg_influencer:
-        st.success("Influencer lebih berpengaruh terhadap keputusan belanja.")
+        st.success("📌 Tren memiliki pengaruh yang lebih besar terhadap keputusan belanja remaja putri di TikTok Shop.")
+    elif avg_influencer > avg_tren:
+        st.success("📌 Influencer memiliki pengaruh yang lebih besar terhadap keputusan belanja remaja putri di TikTok Shop.")
     else:
-        st.info("Pengaruh tren dan influencer seimbang.")
+        st.info("📌 Pengaruh tren dan influencer memiliki tingkat pengaruh yang sama.")
+
