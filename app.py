@@ -2,69 +2,80 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Judul Dashboard
-st.title("Dashboard Analisis Pengaruh Tren dan Influencer")
-st.write("Studi Perilaku Belanja Remaja Putri di TikTok Shop")
+st.title("Dashboard Analisis Tren dan Influencer")
+st.write("Perilaku Belanja Remaja Putri di TikTok Shop")
 
-# Upload file CSV
-uploaded_file = st.file_uploader("Upload file CSV hasil kuesioner", type=["csv"])
+uploaded_file = st.file_uploader("Upload file CSV kuesioner", type=["csv"])
 
 if uploaded_file is not None:
-    # Baca data
     df = pd.read_csv(uploaded_file)
 
-    st.subheader("Preview Data Responden")
+    st.subheader("Preview Data")
     st.dataframe(df.head())
 
-    # =========================
-    # PENGAMBILAN DATA
-    # =========================
-    # Kolom Tren     : 5, 5.1, 5.2, 5.3, 5.4  → index 5–9
-    # Kolom Influencer: 6, 6.1, 6.2, 6.3, 6.4 → index 10–14
+    # ===============================
+    # ASUMSI POSISI KOLOM
+    # ===============================
+    # Fashion
+    tren_fashion = df.iloc[:, 5:7].apply(pd.to_numeric, errors="coerce")
+    influencer_fashion = df.iloc[:, 7:9].apply(pd.to_numeric, errors="coerce")
 
-    tren = df.iloc[:, 5:10].apply(pd.to_numeric, errors="coerce")
-    influencer = df.iloc[:, 10:15].apply(pd.to_numeric, errors="coerce")
+    # Make Up
+    tren_makeup = df.iloc[:, 9:11].apply(pd.to_numeric, errors="coerce")
+    influencer_makeup = df.iloc[:, 11:13].apply(pd.to_numeric, errors="coerce")
 
     # Hitung rata-rata
-    avg_tren = tren.mean().mean()
-    avg_influencer = influencer.mean().mean()
+    avg_tren_fashion = tren_fashion.mean().mean()
+    avg_influencer_fashion = influencer_fashion.mean().mean()
 
-    # =========================
-    # METRIK UTAMA
-    # =========================
-    st.subheader("Hasil Utama Analisis")
+    avg_tren_makeup = tren_makeup.mean().mean()
+    avg_influencer_makeup = influencer_makeup.mean().mean()
+
+    # ===============================
+    # METRIK
+    # ===============================
+    st.subheader("Rata-rata Pengaruh per Kategori Produk")
 
     col1, col2 = st.columns(2)
-    col1.metric("Rata-rata Pengaruh Tren", round(avg_tren, 2))
-    col2.metric("Rata-rata Pengaruh Influencer", round(avg_influencer, 2))
+    col1.metric("Fashion - Tren", round(avg_tren_fashion, 2))
+    col2.metric("Fashion - Influencer", round(avg_influencer_fashion, 2))
 
-    # =========================
-    # GRAFIK PERBANDINGAN
-    # =========================
+    col3, col4 = st.columns(2)
+    col3.metric("Make Up - Tren", round(avg_tren_makeup, 2))
+    col4.metric("Make Up - Influencer", round(avg_influencer_makeup, 2))
+
+    # ===============================
+    # GRAFIK
+    # ===============================
     st.subheader("Perbandingan Pengaruh Tren vs Influencer")
 
     fig, ax = plt.subplots()
-    ax.bar(["Tren", "Influencer"], [avg_tren, avg_influencer])
+    labels = ["Fashion - Tren", "Fashion - Influencer", "Make Up - Tren", "Make Up - Influencer"]
+    values = [
+        avg_tren_fashion,
+        avg_influencer_fashion,
+        avg_tren_makeup,
+        avg_influencer_makeup
+    ]
+
+    ax.bar(labels, values)
     ax.set_ylabel("Nilai Rata-rata")
-    ax.set_xlabel("Variabel")
-    ax.set_title("Pengaruh terhadap Keputusan Belanja")
+    ax.set_title("Pengaruh Tren dan Influencer per Kategori Produk")
+    plt.xticks(rotation=20)
 
     st.pyplot(fig)
 
-    # =========================
+    # ===============================
     # KESIMPULAN OTOMATIS
-    # =========================
-    st.subheader("Kesimpulan")
+    # ===============================
+    st.subheader("Kesimpulan Analisis")
 
-    if avg_tren > avg_influencer:
-        st.success(
-            "Berdasarkan hasil analisis dashboard, variabel **Tren** "
-            "memiliki pengaruh yang lebih besar terhadap keputusan belanja "
-            "remaja putri di TikTok Shop."
-        )
+    if avg_tren_fashion > avg_influencer_fashion:
+        st.write("📌 Pada produk **Fashion**, responden cenderung lebih dipengaruhi oleh **Tren**.")
     else:
-        st.success(
-            "Berdasarkan hasil analisis dashboard, variabel **Influencer** "
-            "memiliki pengaruh yang lebih besar terhadap keputusan belanja "
-            "remaja putri di TikTok Shop."
-        )
+        st.write("📌 Pada produk **Fashion**, responden cenderung lebih dipengaruhi oleh **Influencer**.")
+
+    if avg_tren_makeup > avg_influencer_makeup:
+        st.write("💄 Pada produk **Make Up**, responden cenderung lebih dipengaruhi oleh **Tren**.")
+    else:
+        st.write("💄 Pada produk **Make Up**, responden cenderung lebih dipengaruhi oleh **Influencer**.")
