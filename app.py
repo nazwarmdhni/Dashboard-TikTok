@@ -1,75 +1,117 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 import statsmodels.api as sm
-import plotly.express as px
 
-# --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="Dashboard TA - TikTok Shop", layout="wide")
+# =========================
+# KONFIGURASI HALAMAN
+# =========================
+st.set_page_config(
+    page_title="Dashboard Analisis TikTok Shop",
+    layout="wide"
+)
 
-st.title("📱 Dashboard Analisis Keputusan Belanja TikTok Shop")
-st.markdown("Analisis Pengaruh **Tren** dan **Influencer** terhadap **Keputusan Belanja** Remaja Putri.")
+st.title("Dashboard Analisis Pengaruh Tren dan Influencer")
+st.subheader("Keputusan Belanja Remaja Putri di TikTok Shop")
+st.markdown("---")
 
-# --- LOAD DATA ---
-@st.cache_data
-def load_data():
-    # Membaca file yang kamu unggah
-    df = pd.read_csv('data_kuesioner_likert_numerik.csv')
-    
-    # Menghitung Total Skor untuk Regresi (Metode Likert)
-    # Kolom 5-9: Tren | Kolom 10-14: Influencer | Kolom 15-17: Keputusan
-    df['Total_Tren'] = df.iloc[:, 5:10].sum(axis=1)
-    df['Total_Influencer'] = df.iloc[:, 10:15].sum(axis=1)
-    df['Total_Keputusan'] = df.iloc[:, 15:18].sum(axis=1)
-    
-    return df
+# =========================
+# UPLOAD FILE
+# =========================
+uploaded_file = st.file_uploader(
+    "Upload File CSV Kuesioner",
+    type=["csv"]
+)
 
-try:
-    df = load_data()
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
 
-    # --- BAGIAN 1: STATISTIK DESKRIPTIF ---
-    st.subheader("📊 Gambaran Umum Responden")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig_produk = px.pie(df, names=df.columns[3], title="Kategori Produk Terpopuler")
-        st.plotly_chart(fig_produk)
-        
-    with col2:
-        fig_frekuensi = px.histogram(df, x=df.columns[4], title="Frekuensi Belanja")
-        st.plotly_chart(fig_frekuensi)
+    st.success("Data berhasil diunggah")
 
-    # --- BAGIAN 2: REGRESI LINEAR BERGANDA ---
-    st.divider()
-    st.subheader("🤖 Analisis Regresi Linear Berganda")
+    # =========================
+    # RENAME KOLOM AGAR JELAS
+    # =========================
+    df = df.rename(columns={
+        df.columns[3]: "produk"
+    })
 
-    # Menyiapkan variabel
-    X = df[['Total_Tren', 'Total_Influencer']]
-    Y = df['Total_Keputusan']
-    X = sm.add_constant(X) # Menambahkan intercept
+    # =========================
+    # HITUNG SKOR VARIABEL
+    # =========================
+    tren_cols = df.columns[5:10]        # kolom 5–5.4
+    influencer_cols = df.columns[10:15] # kolom 6–6.4
+    keputusan_cols = df.columns[15:18]  # kolom 7–7.2
 
+    df["tren"] = df[tren_cols].mean(axis=1)
+    df["influencer"] = df[influencer_cols].mean(axis=1)
+    df["keputusan_belanja"] = df[keputusan_cols].mean(axis=1)
+
+    # =========================
+    # TAMPILKAN DATA OLAHAN
+    # =========================
+    st.subheader("Data Setelah Pengolahan")
+    st.dataframe(df[["produk", "tren", "influencer", "keputusan_belanja"]])
+
+    st.markdown("---")
+
+    # =========================
+    # REGRESI LINIER BERGANDA (KESELURUHAN)
+    # =========================
+    st.subheader("Regresi Linier Berganda (Keseluruhan Data)")
+
+    X = df[["tren", "influencer"]]
+    Y = df["keputusan_belanja"]
+
+    X = sm.add_constant(X)
     model = sm.OLS(Y, X).fit()
 
-    # Menampilkan Hasil
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Akurasi Model (R-Squared)", f"{model.rsquared:.3f}")
-    c2.metric("Pengaruh Tren (Beta)", f"{model.params[1]:.3f}")
-    c3.metric("Pengaruh Influencer (Beta)", f"{model.params[2]:.3f}")
+    st.text(model.summary())
 
-    # --- BAGIAN 3: KESIMPULAN INTERAKTIF ---
-    st.info("### 📌 Kesimpulan Mentor")
-    
-    p_tren = model.pvalues[1]
-    p_influencer = model.pvalues[2]
-    
-    # Logika menentukan mana yang lebih berpengaruh
-    if model.params[1] > model.params[2]:
-        pemenang = "Tren"
-        alasan = "lebih kuat pengaruhnya dibanding Influencer."
+    coef = model.params.drop("const")
+
+    fig, ax = plt.subplots()
+    coef.plot(kind="bar", ax=ax)
+    ax.set_title("Perbandingan Pengaruh Tren dan Influencer")
+    ax.set_ylabel("Koefisien Regresi")
+    st.pyplot(fig)
+
+    if coef["tren"] > coef["influencer"]:
+        st.success("Secara keseluruhan, TREN lebih dominan memengaruhi keputusan belanja.")
     else:
-        pemenang = "Influencer"
-        alasan = "lebih kuat pengaruhnya dibanding Tren."
+        st.success("Secara keseluruhan, INFLUENCER lebih dominan memengaruhi keputusan belanja.")
 
-    st.write(f"Berdasarkan data kuesioner kamu, variabel **{pemenang}** memiliki nilai koefisien yang lebih tinggi, artinya {alasan}")
+    st.markdown("---")
 
-except Exception as e:
-    st.error(f"Gagal memuat data. Pastikan file 'data_kuesioner_likert_numerik.csv' ada di folder yang sama. Error: {e}")
+    # =========================
+    # REGRESI PER PRODUK
+    # =========================
+    st.subheader("Analisis Regresi Berdasarkan Jenis Produk")
+
+    for p in df["produk"].unique():
+        st.markdown(f"### Produk: {p}")
+
+        df_p = df[df["produk"] == p]
+
+        Xp = df_p[["tren", "influencer"]]
+        Yp = df_p["keputusan_belanja"]
+
+        Xp = sm.add_constant(Xp)
+        model_p = sm.OLS(Yp, Xp).fit()
+
+        coef_p = model_p.params.drop("const")
+
+        st.dataframe(coef_p)
+
+        fig, ax = plt.subplots()
+        coef_p.plot(kind="bar", ax=ax)
+        ax.set_title(f"Pengaruh Tren vs Influencer ({p})")
+        ax.set_ylabel("Koefisien Regresi")
+        st.pyplot(fig)
+
+        if coef_p["tren"] > coef_p["influencer"]:
+            st.success(f"Produk {p} lebih dominan dipengaruhi oleh TREN.")
+        else:
+            st.success(f"Produk {p} lebih dominan dipengaruhi oleh INFLUENCER.")
+
+        st.markdown("---")
+
