@@ -1,117 +1,85 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import statsmodels.api as sm
+import plotly.express as px
 
-# =========================
-# KONFIGURASI HALAMAN
-# =========================
-st.set_page_config(
-    page_title="Dashboard Analisis TikTok Shop",
-    layout="wide"
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(page_title="Analisis Produk - TikTok Shop", layout="wide")
+
+st.title("🛍️ Analisis Pengaruh per Kategori Produk")
+st.markdown("Gunakan filter di samping untuk melihat apakah produk tertentu lebih dipengaruhi oleh **Tren** atau **Influencer**.")
+
+# --- LOAD & PREPROCESSING DATA ---
+@st.cache_data
+def load_and_clean_data():
+    # Membaca data
+    df = pd.read_csv('data_kuesioner_likert_numerik.csv')
+    
+    # Menamai ulang kolom kategori produk agar mudah dipanggil (Kolom indeks ke-3)
+    df.rename(columns={df.columns[3]: 'Kategori_Produk'}, inplace=True)
+    
+    # Menghitung Total Skor Variabel
+    # X1 (Tren): Kolom 5-9 | X2 (Influencer): Kolom 10-14 | Y (Keputusan): Kolom 15-17
+    df['Total_Tren'] = df.iloc[:, 5:10].sum(axis=1)
+    df['Total_Influencer'] = df.iloc[:, 10:15].sum(axis=1)
+    df['Total_Keputusan'] = df.iloc[:, 15:18].sum(axis=1)
+    
+    return df
+
+df = load_and_clean_data()
+
+# --- SIDEBAR FILTER ---
+st.sidebar.header("Filter Analisis")
+kategori = st.sidebar.selectbox(
+    "Pilih Kategori Produk:",
+    options=["Semua Produk"] + list(df['Kategori_Produk'].unique())
 )
 
-st.title("Dashboard Analisis Pengaruh Tren dan Influencer")
-st.subheader("Keputusan Belanja Remaja Putri di TikTok Shop")
-st.markdown("---")
+# Logika Filter Data
+if kategori == "Semua Produk":
+    df_filtered = df
+else:
+    df_filtered = df[df['Kategori_Produk'] == kategori]
 
-# =========================
-# UPLOAD FILE
-# =========================
-uploaded_file = st.file_uploader(
-    "Upload File CSV Kuesioner",
-    type=["csv"]
-)
-
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-
-    st.success("Data berhasil diunggah")
-
-    # =========================
-    # RENAME KOLOM AGAR JELAS
-    # =========================
-    df = df.rename(columns={
-        df.columns[3]: "produk"
-    })
-
-    # =========================
-    # HITUNG SKOR VARIABEL
-    # =========================
-    tren_cols = df.columns[5:10]        # kolom 5–5.4
-    influencer_cols = df.columns[10:15] # kolom 6–6.4
-    keputusan_cols = df.columns[15:18]  # kolom 7–7.2
-
-    df["tren"] = df[tren_cols].mean(axis=1)
-    df["influencer"] = df[influencer_cols].mean(axis=1)
-    df["keputusan_belanja"] = df[keputusan_cols].mean(axis=1)
-
-    # =========================
-    # TAMPILKAN DATA OLAHAN
-    # =========================
-    st.subheader("Data Setelah Pengolahan")
-    st.dataframe(df[["produk", "tren", "influencer", "keputusan_belanja"]])
-
-    st.markdown("---")
-
-    # =========================
-    # REGRESI LINIER BERGANDA (KESELURUHAN)
-    # =========================
-    st.subheader("Regresi Linier Berganda (Keseluruhan Data)")
-
-    X = df[["tren", "influencer"]]
-    Y = df["keputusan_belanja"]
-
+# --- CEK APAKAH DATA CUKUP ---
+if len(df_filtered) < 3:
+    st.warning(f"Data untuk kategori {kategori} terlalu sedikit untuk dilakukan analisis regresi.")
+else:
+    # --- REGRESI LINEAR BERGANDA ---
+    X = df_filtered[['Total_Tren', 'Total_Influencer']]
+    Y = df_filtered['Total_Keputusan']
     X = sm.add_constant(X)
+    
     model = sm.OLS(Y, X).fit()
 
-    st.text(model.summary())
+    # --- TAMPILAN DASHBOARD ---
+    st.subheader(f"Analisis untuk Kategori: {kategori}")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Jumlah Responden", f"{len(df_filtered)} orang")
+    col2.metric("Pengaruh Tren (Beta)", f"{model.params[1]:.3f}")
+    col3.metric("Pengaruh Influencer (Beta)", f"{model.params[2]:.3f}")
 
-    coef = model.params.drop("const")
+    # Visualisasi
+    st.divider()
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        fig_tren = px.scatter(df_filtered, x='Total_Tren', y='Total_Keputusan', 
+                             trendline="ols", title=f"Tren vs Keputusan ({kategori})")
+        st.plotly_chart(fig_tren, use_container_width=True)
+        
+    with c2:
+        fig_inf = px.scatter(df_filtered, x='Total_Influencer', y='Total_Keputusan', 
+                            trendline="ols", title=f"Influencer vs Keputusan ({kategori})")
+        st.plotly_chart(fig_inf, use_container_width=True)
 
-    fig, ax = plt.subplots()
-    coef.plot(kind="bar", ax=ax)
-    ax.set_title("Perbandingan Pengaruh Tren dan Influencer")
-    ax.set_ylabel("Koefisien Regresi")
-    st.pyplot(fig)
-
-    if coef["tren"] > coef["influencer"]:
-        st.success("Secara keseluruhan, TREN lebih dominan memengaruhi keputusan belanja.")
+    # --- KESIMPULAN OTOMATIS ---
+    st.success("### 💡 Temuan Utama")
+    beta_tren = model.params[1]
+    beta_inf = model.params[2]
+    
+    if beta_tren > beta_inf:
+        st.write(f"Untuk kategori **{kategori}**, remaja putri lebih terdorong belanja karena **Tren yang sedang viral**. Strategi konten harus fokus pada apa yang sedang 'hype'.")
     else:
-        st.success("Secara keseluruhan, INFLUENCER lebih dominan memengaruhi keputusan belanja.")
-
-    st.markdown("---")
-
-    # =========================
-    # REGRESI PER PRODUK
-    # =========================
-    st.subheader("Analisis Regresi Berdasarkan Jenis Produk")
-
-    for p in df["produk"].unique():
-        st.markdown(f"### Produk: {p}")
-
-        df_p = df[df["produk"] == p]
-
-        Xp = df_p[["tren", "influencer"]]
-        Yp = df_p["keputusan_belanja"]
-
-        Xp = sm.add_constant(Xp)
-        model_p = sm.OLS(Yp, Xp).fit()
-
-        coef_p = model_p.params.drop("const")
-
-        st.dataframe(coef_p)
-
-        fig, ax = plt.subplots()
-        coef_p.plot(kind="bar", ax=ax)
-        ax.set_title(f"Pengaruh Tren vs Influencer ({p})")
-        ax.set_ylabel("Koefisien Regresi")
-        st.pyplot(fig)
-
-        if coef_p["tren"] > coef_p["influencer"]:
-            st.success(f"Produk {p} lebih dominan dipengaruhi oleh TREN.")
-        else:
-            st.success(f"Produk {p} lebih dominan dipengaruhi oleh INFLUENCER.")
-
-        st.markdown("---")
-
+        st.write(f"Untuk kategori **{kategori}**, remaja putri lebih percaya pada **Review Influencer**. Strategi pemasaran sebaiknya fokus pada kolaborasi dengan kreator konten.")
